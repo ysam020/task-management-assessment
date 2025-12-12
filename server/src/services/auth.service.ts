@@ -2,11 +2,10 @@ import { hashPassword, comparePassword } from "../utils/password";
 import {
   generateAccessToken,
   generateRefreshToken,
-  verifyRefreshToken,
   getTokenExpiryDate,
 } from "../utils/jwt";
 import { UnauthorizedError, ConflictError } from "../utils/errors";
-import { config, prisma } from "../config";
+import { config, prisma } from "../config/index";
 import { RegisterInput, LoginInput } from "../utils/validations";
 
 interface AuthTokens {
@@ -107,9 +106,6 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string): Promise<AuthTokens> {
-    // Verify refresh token
-    const decoded = verifyRefreshToken(refreshToken);
-
     // Check if refresh token exists in database and is not expired
     const storedToken = await prisma.refreshToken.findUnique({
       where: { token: refreshToken },
@@ -153,25 +149,6 @@ export class AuthService {
     });
   }
 
-  async getCurrentUser(userId: number) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-      },
-    });
-
-    if (!user) {
-      throw new UnauthorizedError("User not found");
-    }
-
-    return user;
-  }
-
   private async generateTokensForUser(
     userId: number,
     email: string,
@@ -181,9 +158,9 @@ export class AuthService {
 
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
-    const expiresAt = getTokenExpiryDate(config.jwt.refreshExpiry);
 
     // Store refresh token in database
+    const expiresAt = getTokenExpiryDate(config.jwt.refreshExpiry);
     await prisma.refreshToken.create({
       data: {
         token: refreshToken,
@@ -192,10 +169,7 @@ export class AuthService {
       },
     });
 
-    return {
-      accessToken,
-      refreshToken,
-    };
+    return { accessToken, refreshToken };
   }
 }
 

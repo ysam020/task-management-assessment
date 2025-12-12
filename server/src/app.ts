@@ -6,7 +6,7 @@ import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import path from "path";
 import routes from "./routes";
-import { config } from "./config";
+import { config } from "./config/index";
 
 const app: Application = express();
 

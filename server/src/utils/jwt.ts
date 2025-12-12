@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { config } from "../config";
+import { config } from "../config/index";
 import { UnauthorizedError } from "./errors";
 
 export interface JWTPayload {
@@ -9,32 +9,23 @@ export interface JWTPayload {
 }
 
 export const generateAccessToken = (payload: JWTPayload): string => {
-  return jwt.sign(payload, config.jwt.accessSecret, {
+  return jwt.sign(payload, config.jwt.secret, {
     expiresIn: config.jwt.accessExpiry,
   });
 };
 
 export const generateRefreshToken = (payload: JWTPayload): string => {
-  return jwt.sign(payload, config.jwt.refreshSecret, {
+  return jwt.sign(payload, config.jwt.secret, {
     expiresIn: config.jwt.refreshExpiry,
   });
 };
 
 export const verifyAccessToken = (token: string): JWTPayload => {
   try {
-    const decoded = jwt.verify(token, config.jwt.accessSecret) as JWTPayload;
+    const decoded = jwt.verify(token, config.jwt.secret) as JWTPayload;
     return decoded;
   } catch (error) {
     throw new UnauthorizedError("Invalid or expired token");
-  }
-};
-
-export const verifyRefreshToken = (token: string): JWTPayload => {
-  try {
-    const decoded = jwt.verify(token, config.jwt.refreshSecret) as JWTPayload;
-    return decoded;
-  } catch (error) {
-    throw new UnauthorizedError("Invalid or expired refresh token");
   }
 };
 
