@@ -1,85 +1,46 @@
 import jwt from "jsonwebtoken";
-import { config } from "../config/index";
+import { config } from "../config";
 import { UnauthorizedError } from "./errors";
 
-export interface TokenPayload {
+export interface JWTPayload {
   userId: number;
   email: string;
+  role: string;
 }
 
-export interface AccessTokenPayload extends TokenPayload {
-  type: "access";
-}
-
-export interface RefreshTokenPayload extends TokenPayload {
-  type: "refresh";
-}
-
-export const generateAccessToken = (payload: TokenPayload): string => {
-  return jwt.sign(
-    { ...payload, type: "access" } as AccessTokenPayload,
-    config.jwt.accessSecret,
-    { expiresIn: config.jwt.accessExpiry }
-  );
+export const generateAccessToken = (payload: JWTPayload): string => {
+  return jwt.sign(payload, config.jwt.accessSecret, {
+    expiresIn: config.jwt.accessExpiry,
+  });
 };
 
-export const generateRefreshToken = (payload: TokenPayload): string => {
-  return jwt.sign(
-    { ...payload, type: "refresh" } as RefreshTokenPayload,
-    config.jwt.refreshSecret,
-    { expiresIn: config.jwt.refreshExpiry }
-  );
+export const generateRefreshToken = (payload: JWTPayload): string => {
+  return jwt.sign(payload, config.jwt.refreshSecret, {
+    expiresIn: config.jwt.refreshExpiry,
+  });
 };
 
-export const verifyAccessToken = (token: string): AccessTokenPayload => {
+export const verifyAccessToken = (token: string): JWTPayload => {
   try {
-    const decoded = jwt.verify(
-      token,
-      config.jwt.accessSecret
-    ) as AccessTokenPayload;
-
-    if (decoded.type !== "access") {
-      throw new UnauthorizedError("Invalid token type");
-    }
-
+    const decoded = jwt.verify(token, config.jwt.accessSecret) as JWTPayload;
     return decoded;
   } catch (error) {
-    if (error instanceof jwt.TokenExpiredError) {
-      throw new UnauthorizedError("Access token expired");
-    }
-    if (error instanceof jwt.JsonWebTokenError) {
-      throw new UnauthorizedError("Invalid access token");
-    }
-    throw error;
+    throw new UnauthorizedError("Invalid or expired token");
   }
 };
 
-export const verifyRefreshToken = (token: string): RefreshTokenPayload => {
+export const verifyRefreshToken = (token: string): JWTPayload => {
   try {
-    const decoded = jwt.verify(
-      token,
-      config.jwt.refreshSecret
-    ) as RefreshTokenPayload;
-
-    if (decoded.type !== "refresh") {
-      throw new UnauthorizedError("Invalid token type");
-    }
-
+    const decoded = jwt.verify(token, config.jwt.refreshSecret) as JWTPayload;
     return decoded;
   } catch (error) {
-    if (error instanceof jwt.TokenExpiredError) {
-      throw new UnauthorizedError("Refresh token expired");
-    }
-    if (error instanceof jwt.JsonWebTokenError) {
-      throw new UnauthorizedError("Invalid refresh token");
-    }
-    throw error;
+    throw new UnauthorizedError("Invalid or expired refresh token");
   }
 };
 
-export const getTokenExpiryDate = (expiryString: string): Date => {
+export const getTokenExpiryDate = (expiresIn: string): Date => {
   const now = new Date();
-  const match = expiryString.match(/^(\d+)([smhd])$/);
+  const match = expiresIn.match(/^(\d+)([smhd])$/);
 
   if (!match) {
     throw new Error("Invalid expiry format");
@@ -98,6 +59,6 @@ export const getTokenExpiryDate = (expiryString: string): Date => {
     case "d":
       return new Date(now.getTime() + value * 24 * 60 * 60 * 1000);
     default:
-      throw new Error("Invalid expiry unit");
+      throw new Error("Invalid time unit");
   }
 };

@@ -2,10 +2,11 @@ import { hashPassword, comparePassword } from "../utils/password";
 import {
   generateAccessToken,
   generateRefreshToken,
+  verifyRefreshToken,
   getTokenExpiryDate,
 } from "../utils/jwt";
 import { UnauthorizedError, ConflictError } from "../utils/errors";
-import { config, prisma } from "../config/index";
+import { config, prisma } from "../config";
 import { RegisterInput, LoginInput } from "../utils/validations";
 
 interface AuthTokens {
@@ -17,7 +18,8 @@ interface AuthResponse extends AuthTokens {
   user: {
     id: number;
     email: string;
-    name: string | null;
+    name: string;
+    role: string;
   };
 }
 
@@ -35,28 +37,36 @@ export class AuthService {
     // Hash password
     const hashedPassword = await hashPassword(data.password);
 
-    // Create user
+    // Create user with role
     const user = await prisma.user.create({
       data: {
         email: data.email,
         password: hashedPassword,
         name: data.name,
+        role: data.role || "INTERVIEWER",
       },
       select: {
         id: true,
         email: true,
         name: true,
+        role: true,
       },
     });
 
     // Generate tokens
-    const tokens = await this.generateTokensForUser(user.id, user.email);
+    const tokens = await this.generateTokensForUser(
+      user.id,
+      user.email,
+      user.role
+    );
 
     return {
       ...tokens,
       user: {
-        ...user,
         id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
       },
     };
   }
@@ -79,7 +89,11 @@ export class AuthService {
     }
 
     // Generate tokens
-    const tokens = await this.generateTokensForUser(user.id, user.email);
+    const tokens = await this.generateTokensForUser(
+      user.id,
+      user.email,
+      user.role
+    );
 
     return {
       ...tokens,
@@ -87,11 +101,15 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
       },
     };
   }
 
   async refresh(refreshToken: string): Promise<AuthTokens> {
+    // Verify refresh token
+    const decoded = verifyRefreshToken(refreshToken);
+
     // Check if refresh token exists in database and is not expired
     const storedToken = await prisma.refreshToken.findUnique({
       where: { token: refreshToken },
@@ -122,8 +140,9 @@ export class AuthService {
 
     // Generate new tokens
     return this.generateTokensForUser(
-      storedToken.userId,
-      storedToken.user.email
+      storedToken.user.id,
+      storedToken.user.email,
+      storedToken.user.role
     );
   }
 
@@ -134,17 +153,15 @@ export class AuthService {
     });
   }
 
-  async getCurrentUser(userId: number): Promise<{
-    id: number;
-    email: string;
-    name: string | null;
-  }> {
+  async getCurrentUser(userId: number) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
         email: true,
         name: true,
+        role: true,
+        createdAt: true,
       },
     });
 
@@ -157,9 +174,10 @@ export class AuthService {
 
   private async generateTokensForUser(
     userId: number,
-    email: string
+    email: string,
+    role: string
   ): Promise<AuthTokens> {
-    const payload = { userId, email };
+    const payload = { userId, email, role };
 
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
@@ -169,7 +187,7 @@ export class AuthService {
     await prisma.refreshToken.create({
       data: {
         token: refreshToken,
-        userId: userId,
+        userId,
         expiresAt,
       },
     });

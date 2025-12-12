@@ -22,6 +22,13 @@ interface Config {
   cors: {
     origin: string;
   };
+  upload: {
+    dir: string;
+    maxSize: number;
+  };
+  openai: {
+    apiKey: string;
+  };
 }
 
 const config: Config = {
@@ -38,6 +45,13 @@ const config: Config = {
   },
   cors: {
     origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+  },
+  upload: {
+    dir: process.env.UPLOAD_DIR || "./uploads",
+    maxSize: parseInt(process.env.MAX_FILE_SIZE || "5242880", 10), // 5MB
+  },
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY || "",
   },
 };
 

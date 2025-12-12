@@ -1,4 +1,4 @@
-import { PrismaClient, TaskStatus } from "@prisma/client";
+import { PrismaClient, UserRole, CandidateStage } from "@prisma/client";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
 
@@ -6,47 +6,53 @@ dotenv.config();
 
 const prisma = new PrismaClient();
 
-// Random data generators
-const titles = [
-  "Complete project documentation",
-  "Review pull requests",
-  "Update API endpoints",
-  "Fix production bugs",
-  "Implement new feature",
-  "Write unit tests",
-  "Deploy to staging",
-  "Database optimization",
-  "Code review session",
-  "Team meeting preparation",
-  "Refactor legacy code",
-  "Security audit",
-  "Performance testing",
-  "Update dependencies",
-  "Create user documentation",
+// Sample candidate data
+const candidateNames = [
+  "John Doe",
+  "Jane Smith",
+  "Alice Johnson",
+  "Bob Williams",
+  "Charlie Brown",
+  "Diana Martinez",
+  "Edward Davis",
+  "Fiona Garcia",
+  "George Miller",
+  "Hannah Wilson",
 ];
 
-const descriptions = [
-  "High priority task that needs immediate attention",
-  "Regular maintenance and cleanup work",
-  "Research and implement best practices",
-  "Collaborate with team members on this initiative",
-  "Update documentation and add examples",
-  "Performance improvements and optimization",
-  "Bug fixes and error handling",
-  "Feature enhancement based on user feedback",
-  "Standard task requiring completion",
-  "Critical issue affecting production",
-  "Minor improvements to existing functionality",
-  "Scheduled maintenance window required",
+const positions = [
+  "Frontend Developer",
+  "Backend Developer",
+  "Full Stack Developer",
+  "DevOps Engineer",
+  "Data Scientist",
+  "Product Manager",
+  "UX Designer",
+  "QA Engineer",
 ];
 
-const statuses: TaskStatus[] = [
-  TaskStatus.PENDING,
-  TaskStatus.IN_PROGRESS,
-  TaskStatus.COMPLETED,
+const skillSets = [
+  ["React", "TypeScript", "Next.js", "CSS"],
+  ["Node.js", "Express", "PostgreSQL", "MongoDB"],
+  ["Python", "Django", "FastAPI", "Machine Learning"],
+  ["Java", "Spring Boot", "Microservices"],
+  ["AWS", "Docker", "Kubernetes", "CI/CD"],
+  ["React", "Node.js", "TypeScript", "GraphQL"],
+  ["Vue.js", "Tailwind CSS", "JavaScript"],
+  ["Go", "gRPC", "Redis", "Kafka"],
 ];
 
-// Helper functions
+const stages: CandidateStage[] = [
+  "SCREENING",
+  "L1",
+  "L2",
+  "DIRECTOR",
+  "HR",
+  "COMPENSATION",
+  "BG_CHECK",
+  "OFFER",
+];
+
 function getRandomElement<T>(array: T[]): T {
   return array[Math.floor(Math.random() * array.length)];
 }
@@ -54,134 +60,181 @@ function getRandomElement<T>(array: T[]): T {
 function getRandomDate(daysAgo: number): Date {
   const now = new Date();
   const randomDays = Math.floor(Math.random() * daysAgo);
-  const randomHours = Math.floor(Math.random() * 24);
-  const randomMinutes = Math.floor(Math.random() * 60);
-
-  now.setDate(now.getDate() - randomDays);
-  now.setHours(now.getHours() - randomHours);
-  now.setMinutes(now.getMinutes() - randomMinutes);
-
-  return now;
+  return new Date(now.getTime() - randomDays * 24 * 60 * 60 * 1000);
 }
 
-async function ensureUserExists() {
-  try {
-    // Check if user with id 1 exists
-    let user = await prisma.user.findUnique({
-      where: { id: 1 },
+async function main() {
+  console.log("🌱 Starting database seed...");
+
+  // Clear existing data
+  console.log("🧹 Clearing existing data...");
+  await prisma.stageHistory.deleteMany();
+  await prisma.feedback.deleteMany();
+  await prisma.note.deleteMany();
+  await prisma.candidate.deleteMany();
+  await prisma.refreshToken.deleteMany();
+  await prisma.user.deleteMany();
+
+  // Create users
+  console.log("👤 Creating users...");
+  const hashedPassword = await bcrypt.hash("Password123!", 10);
+
+  const hrUser = await prisma.user.create({
+    data: {
+      name: "Sarah Johnson",
+      email: "hr@company.com",
+      password: hashedPassword,
+      role: UserRole.HR,
+    },
+  });
+
+  const interviewer1 = await prisma.user.create({
+    data: {
+      name: "Mike Chen",
+      email: "interviewer1@company.com",
+      password: hashedPassword,
+      role: UserRole.INTERVIEWER,
+    },
+  });
+
+  const interviewer2 = await prisma.user.create({
+    data: {
+      name: "Emily Rodriguez",
+      email: "interviewer2@company.com",
+      password: hashedPassword,
+      role: UserRole.INTERVIEWER,
+    },
+  });
+
+  console.log("✅ Created 3 users:");
+  console.log(`   - HR: hr@company.com (password: Password123!)`);
+  console.log(
+    `   - Interviewer 1: interviewer1@company.com (password: Password123!)`
+  );
+  console.log(
+    `   - Interviewer 2: interviewer2@company.com (password: Password123!)`
+  );
+
+  // Create candidates
+  console.log("👥 Creating candidates...");
+  const candidates = [];
+
+  for (let i = 0; i < 10; i++) {
+    const stage = getRandomElement(stages);
+    const stageEntered = getRandomDate(7);
+
+    const candidate = await prisma.candidate.create({
+      data: {
+        name: candidateNames[i],
+        email: `${candidateNames[i].toLowerCase().replace(" ", ".")}@email.com`,
+        phone: `+1-555-${Math.floor(Math.random() * 9000) + 1000}`,
+        position: getRandomElement(positions),
+        experience: Math.floor(Math.random() * 10) + 1,
+        skills: getRandomElement(skillSets),
+        stage,
+        stageEntered,
+      },
     });
 
-    if (!user) {
-      console.log("User with id 1 not found. Creating default user...");
+    candidates.push(candidate);
 
-      // Hash the default password
-      const hashedPassword = await bcrypt.hash("Password123!", 10);
+    // Create initial stage history
+    await prisma.stageHistory.create({
+      data: {
+        candidateId: candidate.id,
+        toStage: "SCREENING",
+        reason: "Initial application received",
+        movedAt: getRandomDate(14),
+      },
+    });
 
-      // Create user with id 1
-      user = await prisma.user.create({
+    // If not in screening, create additional stage history
+    if (stage !== "SCREENING") {
+      const currentStageIndex = stages.indexOf(stage);
+      for (let j = 1; j <= currentStageIndex; j++) {
+        await prisma.stageHistory.create({
+          data: {
+            candidateId: candidate.id,
+            fromStage: stages[j - 1],
+            toStage: stages[j],
+            reason: `Progressed to ${stages[j]}`,
+            movedAt: getRandomDate(10 - j),
+          },
+        });
+      }
+    }
+
+    // Add some feedbacks
+    if (Math.random() > 0.3) {
+      await prisma.feedback.create({
         data: {
-          id: 1,
-          name: "Test User",
-          email: "test@example.com",
-          password: hashedPassword,
+          candidateId: candidate.id,
+          userId: getRandomElement([interviewer1.id, interviewer2.id]),
+          stage: candidate.stage,
+          comment: "Strong technical skills and good communication.",
+          rating: Math.floor(Math.random() * 2) + 4, // 4 or 5
+          createdAt: getRandomDate(5),
         },
       });
-
-      console.log("✓ Created default user:");
-      console.log(`  ID: ${user.id}`);
-      console.log(`  Name: ${user.name}`);
-      console.log(`  Email: ${user.email}`);
-      console.log(`  Password: Password123!`);
-      console.log("");
-    } else {
-      console.log(`✓ User with id 1 already exists (${user.email})`);
     }
 
-    return user;
-  } catch (error) {
-    console.error("Error ensuring user exists:", error);
-    throw error;
-  }
-}
-
-async function seedTasks() {
-  try {
-    // Ensure user with id 1 exists
-    const user = await ensureUserExists();
-
-    // Check if tasks already exist for this user
-    const existingTasksCount = await prisma.task.count({
-      where: { userId: user.id },
-    });
-
-    if (existingTasksCount > 0) {
-      console.log(
-        `User already has ${existingTasksCount} tasks. Skipping task creation.`
-      );
-      console.log(
-        "Run 'npx prisma migrate reset' to clear the database first."
-      );
-      return;
-    }
-
-    console.log("Creating 50 random tasks...");
-
-    // Create 50 random tasks
-    const tasks = [];
-    for (let i = 1; i <= 50; i++) {
-      const createdAt = getRandomDate(30); // Within last 30 days
-      const updatedAt = new Date(
-        createdAt.getTime() + Math.random() * (Date.now() - createdAt.getTime())
-      ); // Between createdAt and now
-
-      const title = `${getRandomElement(titles)} #${i}`;
-      const description = getRandomElement(descriptions);
-      const status = getRandomElement(statuses);
-
-      tasks.push({
-        title,
-        description,
-        status,
-        userId: user.id,
-        createdAt,
-        updatedAt,
+    // Add some notes
+    if (Math.random() > 0.4) {
+      await prisma.note.create({
+        data: {
+          candidateId: candidate.id,
+          userId: getRandomElement([
+            hrUser.id,
+            interviewer1.id,
+            interviewer2.id,
+          ]),
+          content:
+            "Candidate has good experience with the required tech stack.",
+          createdAt: getRandomDate(5),
+        },
       });
     }
-
-    // Insert tasks in batches
-    const batchSize = 10;
-    let created = 0;
-
-    for (let i = 0; i < tasks.length; i += batchSize) {
-      const batch = tasks.slice(i, i + batchSize);
-
-      await prisma.task.createMany({
-        data: batch,
-      });
-
-      created += batch.length;
-      console.log(`✓ Created ${created}/${tasks.length} tasks...`);
-    }
-
-    console.log("");
-    console.log("✓ Database seeding completed successfully!");
-    console.log(`  - User: ${user.email} (id: ${user.id})`);
-    console.log(`  - Tasks: ${created} tasks created`);
-    console.log("");
-  } catch (error) {
-    console.error("Error seeding tasks:", error);
-    throw error;
-  } finally {
-    await prisma.$disconnect();
   }
+
+  console.log(`✅ Created ${candidates.length} candidates with stage history`);
+
+  // Create some stuck candidates (in stage > 2 days)
+  const stuckCandidate = await prisma.candidate.create({
+    data: {
+      name: "Stuck Candidate",
+      email: "stuck@email.com",
+      phone: "+1-555-9999",
+      position: "Senior Developer",
+      experience: 5,
+      skills: ["React", "Node.js", "AWS"],
+      stage: "L2",
+      stageEntered: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+    },
+  });
+
+  await prisma.stageHistory.create({
+    data: {
+      candidateId: stuckCandidate.id,
+      toStage: "L2",
+      reason: "Moved to L2 interview",
+      movedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  console.log("✅ Created stuck candidate example");
+
+  console.log("\n🎉 Database seeded successfully!");
+  console.log("\n📊 Summary:");
+  console.log(`   - Users: 3 (1 HR, 2 Interviewers)`);
+  console.log(`   - Candidates: ${candidates.length + 1}`);
+  console.log(`   - All users password: Password123!`);
 }
 
-// Run the seed function
-seedTasks()
-  .then(() => {
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error("Seeding failed:", error);
+main()
+  .catch((e) => {
+    console.error("❌ Error seeding database:", e);
     process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
   });

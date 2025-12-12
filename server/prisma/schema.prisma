@@ -10,35 +10,36 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  HR
+  INTERVIEWER
+}
+
+enum CandidateStage {
+  SCREENING
+  L1
+  L2
+  DIRECTOR
+  HR
+  COMPENSATION
+  BG_CHECK
+  OFFER
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   name      String
   email     String   @unique
   password  String
+  role      UserRole @default(INTERVIEWER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tasks         Task[]
   refreshTokens RefreshToken[]
+  feedbacks     Feedback[]
+  notes         Note[]
 
   @@map("users")
-}
-
-model Task {
-  id          Int        @id @default(autoincrement())
-  title       String
-  description String?
-  status      TaskStatus @default(PENDING)
-  userId      Int
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([status])
-  @@index([createdAt])
-  @@map("tasks")
 }
 
 model RefreshToken {
@@ -55,8 +56,74 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
-enum TaskStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
+model Candidate {
+  id           Int            @id @default(autoincrement())
+  name         String
+  email        String         @unique
+  phone        String?
+  position     String
+  experience   Int?           // years of experience
+  skills       String[]       // array of skills
+  resumeUrl    String?
+  stage        CandidateStage @default(SCREENING)
+  stageEntered DateTime       @default(now())
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  feedbacks    Feedback[]
+  notes        Note[]
+  stageHistory StageHistory[]
+
+  @@index([stage])
+  @@index([email])
+  @@index([updatedAt])
+  @@map("candidates")
+}
+
+model Feedback {
+  id          Int            @id @default(autoincrement())
+  candidateId Int
+  userId      Int
+  stage       CandidateStage
+  comment     String
+  rating      Int?           // 1-5 rating
+  createdAt   DateTime       @default(now())
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([candidateId])
+  @@index([userId])
+  @@map("feedbacks")
+}
+
+model Note {
+  id          Int      @id @default(autoincrement())
+  candidateId Int
+  userId      Int
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([candidateId])
+  @@index([userId])
+  @@map("notes")
+}
+
+model StageHistory {
+  id          Int             @id @default(autoincrement())
+  candidateId Int
+  fromStage   CandidateStage?
+  toStage     CandidateStage
+  reason      String?
+  movedAt     DateTime        @default(now())
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+  @@index([movedAt])
+  @@map("stage_history")
 }

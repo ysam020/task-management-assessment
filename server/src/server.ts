@@ -1,34 +1,49 @@
 import app from "./app";
-import { config, prisma } from "./config/index";
+import { config, prisma } from "./config";
 
-const startServer = async () => {
-  try {
-    await prisma.$connect();
+const PORT = config.port;
 
-    // Start server
-    app.listen(config.port, () => {
-      console.log(`Server running on port ${config.port}`);
-    });
-  } catch (error) {
-    console.error("Failed to start server:", error);
-    process.exit(1);
-  }
-};
+const server = app.listen(PORT, () => {
+  console.log(`🚀 Server is running on port ${PORT}`);
+  console.log(`📝 Environment: ${config.nodeEnv}`);
+  console.log(`🔗 API: http://localhost:${PORT}/api`);
+  console.log(`💚 Health: http://localhost:${PORT}/api/health`);
+});
 
 // Graceful shutdown
 const gracefulShutdown = async () => {
-  console.log("\nShutting down gracefully...");
+  console.log("\n🔄 Shutting down gracefully...");
 
-  try {
+  // Close server
+  server.close(async () => {
+    console.log("✅ HTTP server closed");
+
+    // Disconnect Prisma
     await prisma.$disconnect();
+    console.log("✅ Database connection closed");
+
     process.exit(0);
-  } catch (error) {
-    console.error("Error during shutdown:", error);
+  });
+
+  // Force shutdown after 10 seconds
+  setTimeout(() => {
+    console.error("⚠️  Forced shutdown after timeout");
     process.exit(1);
-  }
+  }, 10000);
 };
 
+// Handle shutdown signals
 process.on("SIGTERM", gracefulShutdown);
 process.on("SIGINT", gracefulShutdown);
 
-startServer();
+// Handle unhandled promise rejections
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("❌ Unhandled Rejection at:", promise, "reason:", reason);
+  gracefulShutdown();
+});
+
+// Handle uncaught exceptions
+process.on("uncaughtException", (error) => {
+  console.error("❌ Uncaught Exception:", error);
+  gracefulShutdown();
+});

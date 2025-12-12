@@ -1,40 +1,48 @@
 export class AppError extends Error {
-  constructor(
-    public statusCode: number,
-    public message: string,
-    public isOperational = true
-  ) {
+  statusCode: number;
+  isOperational: boolean;
+
+  constructor(message: string, statusCode: number) {
     super(message);
-    Object.setPrototypeOf(this, AppError.prototype);
+    this.statusCode = statusCode;
+    this.isOperational = true;
+
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+
+export class BadRequestError extends AppError {
+  constructor(message: string = "Bad Request") {
+    super(message, 400);
   }
 }
 
 export class UnauthorizedError extends AppError {
   constructor(message: string = "Unauthorized") {
-    super(401, message);
+    super(message, 401);
   }
 }
 
 export class ForbiddenError extends AppError {
   constructor(message: string = "Forbidden") {
-    super(403, message);
+    super(message, 403);
   }
 }
 
 export class NotFoundError extends AppError {
-  constructor(message: string = "Resource not found") {
-    super(404, message);
+  constructor(message: string = "Not Found") {
+    super(message, 404);
   }
 }
 
 export class ConflictError extends AppError {
   constructor(message: string = "Conflict") {
-    super(409, message);
+    super(message, 409);
   }
 }
 
 export class ValidationError extends AppError {
-  constructor(message: string = "Validation failed", public errors?: any) {
-    super(422, message);
+  constructor(message: string = "Validation Error") {
+    super(message, 422);
   }
 }
